@@ -1,7 +1,8 @@
-// src/controllers/borrow.controller.js
 const Borrow = require("../models/borrow.model");
 const Book = require("../models/book.model");
+const Reservation = require("../models/reservation.model");
 const { createFineIfLate } = require("../services/fine.service");
+const { fulfillNextReservation } = require("../services/reservation.service");
 
 const DEFAULT_BORROW_DAYS = 14;
 
@@ -11,10 +12,18 @@ const borrowBook = async (req, res) => {
     const book = await Book.findById(req.params.bookId);
     if (!book) return res.status(404).json({ message: "Book not found" });
 
-    if (book.availableCopies < 1) {
-      return res.status(400).json({ message: "No copies available right now" });
-    }
+    const myReservation = await Reservation.findOne({
+      user: req.user._id,
+      book: book._id,
+      status: "notified",
+    });
 
+    if (!myReservation && book.availableCopies < 1) {
+      return res.status(400).json({
+        message:
+          "No copies available right now. You can reserve this book instead.",
+      });
+    }
     const alreadyBorrowed = await Borrow.findOne({
       user: req.user._id,
       book: book._id,
@@ -35,9 +44,13 @@ const borrowBook = async (req, res) => {
       dueDate,
     });
 
-    book.availableCopies -= 1;
-    await book.save();
-
+    if (myReservation) {
+      myReservation.status = "fulfilled";
+      await myReservation.save();
+    } else {
+      book.availableCopies -= 1;
+      await book.save();
+    }
     res.status(201).json(borrow);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -70,14 +83,15 @@ const returnBook = async (req, res) => {
     }
 
     const fine = await createFineIfLate(borrow);
-res.json({
-  borrow,
-  fine: fine || null,
-  message: fine
-    ? `Book returned late by ${fine.daysLate} day(s). Find of ₹${fine.amount} added.`
-    : "Book returned on time. No fine.",
-});
-    res.json(borrow);
+
+    const notified = await fulfillNextReservation(borrow.book);
+    res.json({
+      borrow,
+      fine: fine || null,
+      message: fine
+        ? `Book returned late by ${fine.daysLate} day(s). Fine of ₹${fine.amount} added.`
+        : "Book returned on time. No fine.",
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

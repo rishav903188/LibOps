@@ -5,12 +5,12 @@ const authRoutes = require("./routes/auth.routes");
 const bookRoutes = require("./routes/book.routes");
 const borrowRoutes = require("./routes/borrow.routes");
 const fineRoutes = require("./routes/fine.routes")
+const reservationRoutes= require("./routes/reservation.routes");
 
 const app = express();
 
 app.use(express.json());
 
-// Serve uploaded files
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.get("/", (req, res) => {
@@ -20,7 +20,8 @@ app.get("/", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/books", bookRoutes);
 app.use("/api/borrow", borrowRoutes);
-app.use("/api/fines", fineRoutes)
+app.use("/api/fines", fineRoutes);
+app.use("/api/reservations", reservationRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ message: "Route not found" });
