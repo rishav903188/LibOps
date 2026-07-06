@@ -1,5 +1,7 @@
 const express = require("express");
 const path = require("path");
+const swaggerUi = require("swagger-ui-express");
+const swaggerSpec = require("./config/swagger");
 
 const authRoutes = require("./routes/auth.routes");
 const bookRoutes = require("./routes/book.routes");
@@ -13,11 +15,31 @@ const recommendationRoutes = require("./routes/recommendation.routes");
 const app = express();
 
 app.use(express.json());
-
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
+// Swagger UI
+app.use(
+  "/api/docs",
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerSpec, {
+    customSiteTitle: "Library API Docs",
+    swaggerOptions: {
+      persistAuthorization: true, // page refresh ke baad bhi token na bhule
+    },
+  }),
+);
+
+// Raw JSON spec — Postman import ke liye
+app.get("/api/docs.json", (req, res) => {
+  res.setHeader("Content-Type", "application/json");
+  res.send(swaggerSpec);
+});
+
 app.get("/", (req, res) => {
-  res.json({ message: "Library Management System API — v2.0.3" });
+  res.json({
+    message: "Library Management System API — v2.0.4",
+    docs: "http://localhost:5000/api/docs",
+  });
 });
 
 app.use("/api/auth", authRoutes);
