@@ -5,9 +5,7 @@ const getMyFines = async (req, res) => {
   try {
     const fines = await prisma.fine.findMany({
       where: { userId: req.user.id },
-      include: {
-        book: { select: { title: true, author: true, isbn: true } },
-      },
+      include: { book: { select: { title: true, author: true, isbn: true } } },
       orderBy: { createdAt: "desc" },
     });
     res.json(fines);
@@ -30,6 +28,10 @@ const payFine = async (req, res) => {
       return res.status(400).json({ message: "Fine already paid" });
     }
 
+    if (fine.status === "waived") {
+      return res.status(400).json({ message: "Fine already waived — no payment needed" });
+    }
+
     const updated = await prisma.fine.update({
       where: { id: req.params.id },
       data: { status: "paid", paidAt: new Date() },
@@ -41,7 +43,28 @@ const payFine = async (req, res) => {
   }
 };
 
-// @route  GET /api/fines
+// @route  PUT /api/fines/:id/waive  (librarian/admin only — rbac.middleware already guards this)
+const waiveFine = async (req, res) => {
+  try {
+    const fine = await prisma.fine.findUnique({ where: { id: req.params.id } });
+    if (!fine) return res.status(404).json({ message: "Fine not found" });
+
+    if (fine.status !== "unpaid") {
+      return res.status(400).json({ message: `Fine is already ${fine.status}` });
+    }
+
+    const updated = await prisma.fine.update({
+      where: { id: req.params.id },
+      data: { status: "waived" },
+    });
+
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// @route  GET /api/fines  (librarian/admin only — rbac.middleware already guards this)
 const getAllFines = async (req, res) => {
   try {
     const fines = await prisma.fine.findMany({
@@ -57,4 +80,4 @@ const getAllFines = async (req, res) => {
   }
 };
 
-module.exports = { getMyFines, payFine, getAllFines };
+module.exports = { getMyFines, payFine, waiveFine, getAllFines };

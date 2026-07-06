@@ -3,6 +3,7 @@ const {
   createBook, getBooks, getBookById, updateBook, deleteBook, uploadBookCover,
 } = require("../controllers/book.controller");
 const { protect } = require("../middlewares/auth.middleware");
+const { authorize } = require("../middlewares/rbac.middleware");
 const upload = require("../middlewares/upload.middleware");
 
 const router = express.Router();
@@ -19,7 +20,7 @@ const router = express.Router();
  * /api/books:
  *   get:
  *     tags: [Books]
- *     summary: Get all books
+ *     summary: Get all books (public)
  *     security: []
  *     responses:
  *       200:
@@ -32,7 +33,7 @@ const router = express.Router();
  *                 $ref: '#/components/schemas/Book'
  *   post:
  *     tags: [Books]
- *     summary: Create a new book (with optional cover image)
+ *     summary: Create a book (librarian/admin only)
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -52,29 +53,25 @@ const router = express.Router();
  *     responses:
  *       201:
  *         description: Book created
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Book'
+ *       403:
+ *         description: Insufficient permissions
  */
 router.route("/")
   .get(getBooks)
-  .post(protect, upload.single("cover"), createBook);
+  .post(protect, authorize("admin", "librarian"), upload.single("cover"), createBook);
 
 /**
  * @openapi
  * /api/books/{id}:
  *   get:
  *     tags: [Books]
- *     summary: Get a book by ID
+ *     summary: Get a book by ID (public)
  *     security: []
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
- *         schema:
- *           type: string
- *           format: uuid
+ *         schema: { type: string, format: uuid }
  *     responses:
  *       200:
  *         description: Book details
@@ -86,16 +83,14 @@ router.route("/")
  *         description: Book not found
  *   put:
  *     tags: [Books]
- *     summary: Update a book
+ *     summary: Update a book (librarian/admin only)
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
- *         schema:
- *           type: string
- *           format: uuid
+ *         schema: { type: string, format: uuid }
  *     requestBody:
  *       content:
  *         multipart/form-data:
@@ -111,42 +106,42 @@ router.route("/")
  *     responses:
  *       200:
  *         description: Updated book
+ *       403:
+ *         description: Insufficient permissions
  *   delete:
  *     tags: [Books]
- *     summary: Delete a book
+ *     summary: Delete a book (librarian/admin only)
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
- *         schema:
- *           type: string
- *           format: uuid
+ *         schema: { type: string, format: uuid }
  *     responses:
  *       200:
  *         description: Book removed
+ *       403:
+ *         description: Insufficient permissions
  */
 router.route("/:id")
   .get(getBookById)
-  .put(protect, upload.single("cover"), updateBook)
-  .delete(protect, deleteBook);
+  .put(protect, authorize("admin", "librarian"), upload.single("cover"), updateBook)
+  .delete(protect, authorize("admin", "librarian"), deleteBook);
 
 /**
  * @openapi
  * /api/books/{id}/cover:
  *   post:
  *     tags: [Books]
- *     summary: Upload cover image for an existing book
+ *     summary: Upload book cover (librarian/admin only)
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
- *         schema:
- *           type: string
- *           format: uuid
+ *         schema: { type: string, format: uuid }
  *     requestBody:
  *       required: true
  *       content:
@@ -158,8 +153,10 @@ router.route("/:id")
  *               cover: { type: string, format: binary }
  *     responses:
  *       200:
- *         description: Cover uploaded successfully
+ *         description: Cover uploaded
+ *       403:
+ *         description: Insufficient permissions
  */
-router.post("/:id/cover", protect, upload.single("cover"), uploadBookCover);
+router.post("/:id/cover", protect, authorize("admin", "librarian"), upload.single("cover"), uploadBookCover);
 
 module.exports = router;
